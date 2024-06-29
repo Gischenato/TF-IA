@@ -29,6 +29,42 @@ from game import Action
 from game import Directions
 from util import nearestPoint
 
+defense_movents = [
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.SOUTH,
+  Directions.WEST,
+  Directions.WEST,
+  Directions.NORTH,
+  Directions.NORTH,
+  Directions.NORTH,
+  Directions.NORTH,
+  Directions.WEST,
+  Directions.NORTH,
+  Directions.NORTH,
+  Directions.NORTH,
+  Directions.WEST,
+  Directions.NORTH,
+  Directions.NORTH,
+  Directions.WEST,
+  Directions.WEST,
+  Directions.SOUTH,
+  Directions.WEST,
+  Directions.WEST,
+  ]
+
+curr = 0
+
 #################
 # Team creation #
 #################
@@ -59,7 +95,6 @@ class ReflexCaptureAgent(CaptureAgent):
   """
   A base class for reflex agents that chooses score-maximizing actions
   """
- 
   def registerInitialState(self, gameState: GameState) -> None:
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
@@ -68,6 +103,12 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
+    if self.curr == len(defense_movents):
+      return Directions.STOP
+    mov = defense_movents[self.curr]
+    self.curr += 1
+    return mov
+  
     actions = gameState.getLegalActions(self.index)
 
     # You can profile your evaluation time by uncommenting these lines
@@ -101,8 +142,11 @@ class ReflexCaptureAgent(CaptureAgent):
     pos = successor.getAgentState(self.index).getPosition()
     if pos != nearestPoint(pos):
       # Only half a grid position was covered
-      return successor.generateSuccessor(self.index, action)
+      successor = successor.generateSuccessor(self.index, action)
+      # print(successor)
+      return successor
     else:
+      # print(successor)
       return successor
 
   def evaluate(self, gameState: GameState, action: Action) -> float:
@@ -120,6 +164,7 @@ class ReflexCaptureAgent(CaptureAgent):
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
     features['successorScore'] = self.getScore(successor)
+    # print(features)
     return features
 
   def getWeights(self, gameState: GameState, action: Action) -> dict[str, float]:
@@ -135,6 +180,11 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
   we give you to get an idea of what an offensive agent might look like,
   but it is by no means the best or only way to build an offensive agent.
   """
+  def registerInitialState(self, gameState: GameState) -> None:
+    self.curr = 1
+    self.start = gameState.getAgentPosition(self.index)
+    CaptureAgent.registerInitialState(self, gameState)
+  
   def getFeatures(self, gameState: GameState, action: Action) -> dict[str, float]:
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
@@ -147,6 +197,7 @@ class OffensiveReflexAgent(ReflexCaptureAgent):
       myPos = successor.getAgentState(self.index).getPosition()
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
       features['distanceToFood'] = minDistance
+    # print(features)
     return features
 
   def getWeights(self, gameState: GameState, action: Action) -> dict[str, float]:
@@ -159,6 +210,11 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
   could be like.  It is not the best or only way to make
   such an agent.
   """
+  
+  def registerInitialState(self, gameState: GameState) -> None:
+    self.curr=0
+    self.start = gameState.getAgentPosition(self.index)
+    CaptureAgent.registerInitialState(self, gameState)
 
   def getFeatures(self, gameState: GameState, action: Action) -> dict[str, float]:
     features = util.Counter()
@@ -182,7 +238,9 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     if action == Directions.STOP: features['stop'] = 1
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
-
+    
+    # print(features)
+    print(features)  
     return features
 
   def getWeights(self, gameState: GameState, action: Action) -> dict[str, float]:

@@ -78,7 +78,7 @@ class AttackAgent(BaseAgent):
   def chooseAction(self, gameState: GameState) -> Action:
     action = self.findCapsule(gameState)
     return action
-  
+
   def setup(self, gameState: GameState) -> None:
     self.capsule = self.getCapsules(gameState)[0]
 
@@ -96,39 +96,15 @@ class AttackAgent(BaseAgent):
     for action in actions:
       successor = self.getSuccessor(gameState, action)
       pos2 = successor.getAgentPosition(self.index)
+      print(pos2)
+      print(opponentBlockPos)
       dist = self.getMazeDistance(self.capsule,pos2)
-      if opponentBlockPos != None:
-        if self.calcXNextMoves(self.getSuccessor(gameState, action), 3, opponentBlockPos):
-          print("opponent is near")
-          continue
-      if dist < bestDist:
+      if dist < bestDist and (opponentBlockPos == None or opponentBlockPos != pos2):
         bestAction = action
         bestDist = dist
     if bestDist == 9999:
-      print("random action")
       return random.choice(actions)
     return bestAction
-  
-  def calcXNextMoves(self, gameState: GameState, moves, opponentPos):
-    possible = True
-    for i in range(moves):
-      bestDist = 9999
-      actions = gameState.getLegalActions(self.index)
-      for action in actions:
-        successor = self.getSuccessor(gameState, action)
-        pos2 = successor.getAgentPosition(self.index)
-        dist = self.getMazeDistance(self.capsule, pos2)
-        if dist < bestDist:
-          bestAction = action
-          bestDist = dist
-      gameState = self.getSuccessor(gameState, bestAction)
-      if gameState.getAgentPosition(self.index) == opponentPos:
-        possible = False
-        break
-      
-    print(possible)
-    return possible
-          
   
   def opponentIsNear():
     pass
