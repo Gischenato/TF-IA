@@ -19,6 +19,7 @@ from captureAgents import CaptureAgent
 from game import Action
 from game import Directions
 from util import nearestPoint
+from collections import deque
 
 #################
 # Team creation #
@@ -47,9 +48,50 @@ def createTeam(firstIndex, secondIndex, isRed,
 ##########
 # Agents #
 ##########
-
+from time import sleep
 class BaseAgent(CaptureAgent):
+  
+  def bfs_distance(self, pos1, pos2, enemies=[]):
+    def parse_map(map_str):
+      lines = map_str.strip().split('\n')
+      grid = [list(line) for line in lines]
+      return grid
+    
+    def bfs(grid, start, goal):
+      print("\033[H\033[J", end="")
+      for l in grid:
+        print("".join(l))
+      rows, cols = len(grid), len(grid[0])
+      queue = [(start, 0)]  # (position, distance)
+      visited = set([start])
+      
+      while queue:  
+        curr, distance = queue.pop(0)
+        
+        if curr == goal:
+          return distance
+        
+        for vizinho in [(curr[0] + 1, curr[1]), (curr[0] - 1, curr[1]), (curr[0], curr[1] + 1), (curr[0], curr[1] - 1)]:
+          if 0 <= vizinho[0] < cols and 0 <= vizinho[1] < rows:
+            if grid[vizinho[1]][vizinho[0]] not in ['%'] and vizinho not in visited:
+              visited.add(vizinho)
+              queue.append((vizinho, distance + 1))
+      
+      return float('inf')  # Retorna infinito se não houver caminho
+    
+    grid = parse_map(self.layout)
+    for pos in enemies:
+      grid[pos[1]][pos[0]] = '%'
+    # y must be inverted
+    pos1 = (pos1[0], len(grid) - pos1[1] - 1)
+    pos2 = (pos2[0], len(grid) - pos2[1] - 1)    
+    # print(grid)
+    return bfs(grid, pos1, pos2)
+  
+  
   def registerInitialState(self, gameState: GameState) -> None:
+    self.layout = str(gameState.data.layout)
+    print(self.layout)
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
     self.setup(gameState)
@@ -83,7 +125,13 @@ class AttackAgent(BaseAgent):
     self.capsule = self.getCapsules(gameState)[0]
 
   def findCapsule(self, gameState: GameState):
+    # print(gameState.getAgentPosition(self.index))
+    
     current = gameState.getAgentPosition(self.index)
+    my_dist = self.bfs_distance(current, self.capsule)
+    other_dist = self.getMazeDistance(current, self.capsule)
+    print(self.capsule)
+    print(my_dist, other_dist)
     opponentBlockPos = None
     for opponentsIndex in self.getOpponents(gameState):
       opponentPos = gameState.getAgentPosition(opponentsIndex)
@@ -98,7 +146,7 @@ class AttackAgent(BaseAgent):
       pos2 = successor.getAgentPosition(self.index)
       dist = self.getMazeDistance(self.capsule,pos2)
       if opponentBlockPos != None:
-        if self.calcXNextMoves(self.getSuccessor(gameState, action), 3, opponentBlockPos):
+        if not self.calcXNextMoves(gameState, 3, opponentBlockPos):
           print("opponent is near")
           continue
       if dist < bestDist:
@@ -106,7 +154,7 @@ class AttackAgent(BaseAgent):
         bestDist = dist
     if bestDist == 9999:
       print("random action")
-      return random.choice(actions)
+      return Directions.STOP
     return bestAction
   
   def calcXNextMoves(self, gameState: GameState, moves, opponentPos):
@@ -117,18 +165,22 @@ class AttackAgent(BaseAgent):
       for action in actions:
         successor = self.getSuccessor(gameState, action)
         pos2 = successor.getAgentPosition(self.index)
-        dist = self.getMazeDistance(self.capsule, pos2)
+        dist = self.bfs_distance(self.capsule, pos2, [opponentPos])
         if dist < bestDist:
           bestAction = action
           bestDist = dist
       gameState = self.getSuccessor(gameState, bestAction)
-      if gameState.getAgentPosition(self.index) == opponentPos:
+      # print(gameState.getAgentPosition(self.index), opponentPos)
+      if self.calculateDistance(gameState.getAgentPosition(self.index), opponentPos) == 1:
         possible = False
+        print("opponent is near")
         break
       
     print(possible)
     return possible
           
+  def calculateDistance(self, pos1, pos2):
+    return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
   
   def opponentIsNear():
     pass
