@@ -18,13 +18,14 @@ from capture import GameState
 from captureAgents import CaptureAgent
 from game import Action
 from game import Directions
+from util import nearestPoint
 
 #################
 # Team creation #
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'DummyAgent', second = 'DummyAgent'):
+               first = 'AttackAgent', second = 'BaseAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -47,48 +48,82 @@ def createTeam(firstIndex, secondIndex, isRed,
 # Agents #
 ##########
 
-class DummyAgent(CaptureAgent):
-  """
-  A Dummy agent to serve as an example of the necessary agent structure.
-  You should look at baselineTeam.py for more details about how to
-  create an agent as this is the bare minimum.
-  """
-
+class BaseAgent(CaptureAgent):
   def registerInitialState(self, gameState: GameState) -> None:
-    """
-    This method handles the initial setup of the
-    agent to populate useful fields (such as what team
-    we're on).
-
-    A distanceCalculator instance caches the maze distances
-    between each pair of positions, so your agents can use:
-    self.distancer.getDistance(p1, p2)
-
-    IMPORTANT: This method may run for at most 15 seconds.
-    """
-
-    '''
-    Make sure you do not delete the following line. If you would like to
-    use Manhattan distances instead of maze distances in order to save
-    on initialization time, please take a look at
-    CaptureAgent.registerInitialState in captureAgents.py.
-    '''
+    self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
-
-    '''
-    Your initialization code goes here, if you need any.
-    '''
-
+    self.setup(gameState)
 
   def chooseAction(self, gameState: GameState) -> Action:
-    """
-    Picks among actions randomly.
-    """
     actions = gameState.getLegalActions(self.index)
-
-    '''
-    You should change this in your own agent.
-    '''
-
     return random.choice(actions)
 
+  def getSuccessor(self, gameState: GameState, action: Action) -> GameState:
+    """
+    Finds the next successor which is a grid position (location tuple).
+    """
+    successor = gameState.generateSuccessor(self.index, action)
+    pos = successor.getAgentState(self.index).getPosition()
+    if pos != nearestPoint(pos):
+      # Only half a grid position was covered
+      return successor.generateSuccessor(self.index, action)
+    else:
+      return successor
+
+
+  def setup(self, gameState: GameState) -> None:
+    pass
+  
+class AttackAgent(BaseAgent):
+  def chooseAction(self, gameState: GameState) -> Action:
+    action = self.findCapsule(gameState)
+    return action
+  
+  def setup(self, gameState: GameState) -> None:
+    self.capsule = self.getCapsules(gameState)[0]
+
+  def findCapsule(self, gameState: GameState):
+    current = gameState.getAgentPosition(self.index)
+    opponentBlockPos = None
+    for opponentsIndex in self.getOpponents(gameState):
+      opponentPos = gameState.getAgentPosition(opponentsIndex)
+      if gameState.getAgentPosition(opponentsIndex) != None:
+        opponentBlockPos = opponentPos
+    if current == self.capsule:
+        pass
+    bestDist = 9999
+    actions = gameState.getLegalActions(self.index)
+    for action in actions:
+      successor = self.getSuccessor(gameState, action)
+      pos2 = successor.getAgentPosition(self.index)
+      dist = self.getMazeDistance(self.capsule,pos2)
+      if opponentBlockPos != None:
+        if self.calcXNextMoves(self.getSuccessor(gameState, action), 3, opponentPos):
+          print("opponent is near")
+          continue
+      if dist < bestDist:
+        bestAction = action
+        bestDist = dist
+    if bestDist == 9999:
+      return random.choice(actions)
+    return bestAction
+  
+  def calcXNextMoves(self, gameState: GameState, moves, opponentPos):
+    if moves == 0:
+      return False
+    for action in gameState.getLegalActions(self.index):
+      successor = gameState.generateSuccessor(self.index, action)
+      if successor.getAgentPosition(self.index) == opponentPos:
+        return True
+      if self.calcXNextMoves(successor, moves - 1, opponentPos):
+        return True
+    return False
+  
+  def opponentIsNear():
+    pass
+    
+
+class DefenseAgent(BaseAgent):
+  def chooseAction(self, gameState: GameState) -> Action:
+    actions = gameState.getLegalActions(self.index)
+    return random.choice(actions)
