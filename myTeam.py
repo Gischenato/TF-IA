@@ -81,7 +81,7 @@ class BaseAgent(CaptureAgent):
     
     grid = parse_map(self.layout)
     for pos in enemies:
-      grid[pos[1]][pos[0]] = '%'
+      grid[len(grid) - pos[1] - 1][pos[0]] = '%'
     # y must be inverted
     pos1 = (pos1[0], len(grid) - pos1[1] - 1)
     pos2 = (pos2[0], len(grid) - pos2[1] - 1)    
@@ -128,15 +128,15 @@ class AttackAgent(BaseAgent):
     # print(gameState.getAgentPosition(self.index))
     
     current = gameState.getAgentPosition(self.index)
-    my_dist = self.bfs_distance(current, self.capsule)
-    other_dist = self.getMazeDistance(current, self.capsule)
-    print(self.capsule)
-    print(my_dist, other_dist)
-    opponentBlockPos = None
+    # my_dist = self.bfs_distance(current, self.capsule)
+    # other_dist = self.getMazeDistance(current, self.capsule)
+    # print(self.capsule)
+    # print(my_dist, other_dist)
+    opponentBlockPos = []
     for opponentsIndex in self.getOpponents(gameState):
       opponentPos = gameState.getAgentPosition(opponentsIndex)
       if gameState.getAgentPosition(opponentsIndex) != None:
-        opponentBlockPos = opponentPos
+        opponentBlockPos.append(opponentPos)
     if current == self.capsule:
         pass
     bestDist = 9999
@@ -144,7 +144,7 @@ class AttackAgent(BaseAgent):
     for action in actions:
       successor = self.getSuccessor(gameState, action)
       pos2 = successor.getAgentPosition(self.index)
-      dist = self.getMazeDistance(self.capsule,pos2)
+      dist = self.bfs_distance(self.capsule,pos2, opponentBlockPos)
       if opponentBlockPos != None:
         if not self.calcXNextMoves(gameState, 3, opponentBlockPos):
           print("opponent is near")
@@ -157,7 +157,7 @@ class AttackAgent(BaseAgent):
       return Directions.STOP
     return bestAction
   
-  def calcXNextMoves(self, gameState: GameState, moves, opponentPos):
+  def calcXNextMoves(self, gameState: GameState, moves, opponentPos=[]):
     possible = True
     for i in range(moves):
       bestDist = 9999
@@ -165,16 +165,17 @@ class AttackAgent(BaseAgent):
       for action in actions:
         successor = self.getSuccessor(gameState, action)
         pos2 = successor.getAgentPosition(self.index)
-        dist = self.bfs_distance(self.capsule, pos2, [opponentPos])
+        dist = self.bfs_distance(self.capsule, pos2, opponentPos)
         if dist < bestDist:
           bestAction = action
           bestDist = dist
       gameState = self.getSuccessor(gameState, bestAction)
       # print(gameState.getAgentPosition(self.index), opponentPos)
-      if self.calculateDistance(gameState.getAgentPosition(self.index), opponentPos) == 1:
-        possible = False
-        print("opponent is near")
-        break
+      for pos in opponentPos:
+        if self.calculateDistance(gameState.getAgentPosition(self.index), pos) == 1:
+          possible = False
+          print("opponent is near")
+          break
       
     print(possible)
     return possible

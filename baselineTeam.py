@@ -103,11 +103,11 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
-    if self.curr == len(defense_movents):
-      return Directions.STOP
-    mov = defense_movents[self.curr]
-    self.curr += 1
-    return mov
+    # if self.curr == len(defense_movents):
+    #   return Directions.STOP
+    # mov = defense_movents[self.curr]
+    # self.curr += 1
+    # return mov
   
     actions = gameState.getLegalActions(self.index)
 
