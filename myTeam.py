@@ -58,9 +58,9 @@ class BaseAgent(CaptureAgent):
       return grid
     
     def bfs(grid, start, goal):
-      print("\033[H\033[J", end="")
-      for l in grid:
-        print("".join(l))
+      # print("\033[H\033[J", end="")
+      # for l in grid:
+      #   print("".join(l))
       rows, cols = len(grid), len(grid[0])
       queue = [(start, 0)]  # (position, distance)
       visited = set([start])
@@ -122,12 +122,19 @@ class AttackAgent(BaseAgent):
     return action
   
   def setup(self, gameState: GameState) -> None:
-    self.capsule = self.getCapsules(gameState)[0]
+    self.seeking = self.getCapsules(gameState)[0]
+
+  def findNearFood(self, gameState: GameState):
+    print(self.getFood(gameState).asList())
 
   def findCapsule(self, gameState: GameState):
     # print(gameState.getAgentPosition(self.index))
     
     current = gameState.getAgentPosition(self.index)
+    if current == self.seeking:
+      print("Capsule found")
+      self.findNearFood(gameState)
+      
     # my_dist = self.bfs_distance(current, self.capsule)
     # other_dist = self.getMazeDistance(current, self.capsule)
     # print(self.capsule)
@@ -137,14 +144,12 @@ class AttackAgent(BaseAgent):
       opponentPos = gameState.getAgentPosition(opponentsIndex)
       if gameState.getAgentPosition(opponentsIndex) != None:
         opponentBlockPos.append(opponentPos)
-    if current == self.capsule:
-        pass
     bestDist = 9999
     actions = gameState.getLegalActions(self.index)
     for action in actions:
       successor = self.getSuccessor(gameState, action)
       pos2 = successor.getAgentPosition(self.index)
-      dist = self.bfs_distance(self.capsule,pos2, opponentBlockPos)
+      dist = self.bfs_distance(self.seeking,pos2, opponentBlockPos)
       if opponentBlockPos != None:
         if not self.calcXNextMoves(gameState, 3, opponentBlockPos):
           print("opponent is near")
@@ -165,7 +170,7 @@ class AttackAgent(BaseAgent):
       for action in actions:
         successor = self.getSuccessor(gameState, action)
         pos2 = successor.getAgentPosition(self.index)
-        dist = self.bfs_distance(self.capsule, pos2, opponentPos)
+        dist = self.bfs_distance(self.seeking, pos2, opponentPos)
         if dist < bestDist:
           bestAction = action
           bestDist = dist
@@ -177,7 +182,7 @@ class AttackAgent(BaseAgent):
           print("opponent is near")
           break
       
-    print(possible)
+    # print(possible)
     return possible
           
   def calculateDistance(self, pos1, pos2):

@@ -240,7 +240,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     if action == rev: features['reverse'] = 1
     
     # print(features)
-    print(features)  
+    # print(features)
     return features
 
   def getWeights(self, gameState: GameState, action: Action) -> dict[str, float]:
