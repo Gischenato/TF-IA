@@ -20,7 +20,7 @@ from game import Action
 from game import Directions
 from util import nearestPoint
 from collections import deque
-
+from enum import Enum
 #################
 # Team creation #
 #################
@@ -48,15 +48,52 @@ def createTeam(firstIndex, secondIndex, isRed,
 ##########
 # Agents #
 ##########
+def parse_map(map_str):
+  lines = map_str.strip().split('\n')
+  grid = [list(line) for line in lines]
+  return grid
+
 from time import sleep
 class BaseAgent(CaptureAgent):
-  
-  def bfs_distance(self, pos1, pos2, enemies=[]):
-    def parse_map(map_str):
-      lines = map_str.strip().split('\n')
-      grid = [list(line) for line in lines]
-      return grid
     
+  def bfs_distance_goals(self, pos1, enemies=[], goals=[]):
+    def bfs(grid, start):
+      rows, cols = len(grid), len(grid[0])
+      queue = [(start, 0, Directions.STOP)]  # (position, distance)
+      visited = set([start])
+      
+      directions = [Directions.EAST, Directions.WEST, Directions.SOUTH, Directions.NORTH]
+      
+      while queue:  
+        curr, distance, _dir = queue.pop(0)
+        
+        if grid[curr[1]][curr[0]] == '-':
+          return distance, _dir
+        neighbors = [(curr[0] + 1, curr[1]), (curr[0] - 1, curr[1]), (curr[0], curr[1] + 1), (curr[0], curr[1] - 1)]
+        
+        for vizinho, direct in zip(neighbors, directions):
+          if 0 <= vizinho[0] < cols and 0 <= vizinho[1] < rows:
+            if grid[vizinho[1]][vizinho[0]] not in ['%'] and vizinho not in visited:
+              if _dir != Directions.STOP:
+                direct = _dir
+              queue.append((vizinho, distance + 1, direct))
+              visited.add(vizinho)
+              
+      return float('inf'), Directions.STOP  # Retorna infinito se não houver caminho
+
+    grid = parse_map(self.layout)
+    
+    for pos in enemies:
+      grid[len(grid) - pos[1] - 1][pos[0]] = '%'
+    for pos in goals:
+      grid[len(grid) - pos[1] - 1][pos[0]] = '-'
+    
+    # y must be inverted
+    pos1 = (pos1[0], len(grid) - pos1[1] - 1)
+    
+    return bfs(grid, pos1)
+
+  def bfs_distance(self, pos1, pos2, enemies=[]):
     def bfs(grid, start, goal):
       # print("\033[H\033[J", end="")
       # for l in grid:
@@ -117,42 +154,62 @@ class BaseAgent(CaptureAgent):
     pass
   
 class AttackAgent(BaseAgent):
+  def registerInitialState(self, gameState: GameState) -> None:
+    super().registerInitialState(gameState)
+    self.strategy = 'CAPSULE'
+    self.strategies = {
+      'CAPSULE': self.findCapsule,
+      'FOOD': self.findNearFood
+    }
+    
+  
   def chooseAction(self, gameState: GameState) -> Action:
-    action = self.findCapsule(gameState)
+    action = self.strategies[self.strategy](gameState)
     return action
   
   def setup(self, gameState: GameState) -> None:
     self.seeking = self.getCapsules(gameState)[0]
 
+  def getOponentPositions(self, gameState: GameState):
+    opponentBlockPos = []
+    for opponentsIndex in self.getOpponents(gameState):
+      opponentPos = gameState.getAgentPosition(opponentsIndex)
+      if gameState.getAgentPosition(opponentsIndex) != None:
+        opponentBlockPos.append(opponentPos)
+    return opponentBlockPos
+    
+
   def findNearFood(self, gameState: GameState):
-    print(self.getFood(gameState).asList())
+    current = gameState.getAgentPosition(self.index)
+    print('sdasdsad')
+    opponentBlockPos = self.getOponentPositions(gameState)
+    food = self.getFood(gameState).asList()
+
+    dist, _dir = self.bfs_distance_goals(current, enemies=opponentBlockPos, goals=food)
+    
+    return _dir
 
   def findCapsule(self, gameState: GameState):
     # print(gameState.getAgentPosition(self.index))
     
     current = gameState.getAgentPosition(self.index)
     if current == self.seeking:
-      print("Capsule found")
-      self.findNearFood(gameState)
+      self.strategy = 'FOOD'
+      return self.findNearFood(gameState)
+
+    opponentBlockPos = self.getOponentPositions(gameState)
       
-    # my_dist = self.bfs_distance(current, self.capsule)
-    # other_dist = self.getMazeDistance(current, self.capsule)
-    # print(self.capsule)
-    # print(my_dist, other_dist)
-    opponentBlockPos = []
-    for opponentsIndex in self.getOpponents(gameState):
-      opponentPos = gameState.getAgentPosition(opponentsIndex)
-      if gameState.getAgentPosition(opponentsIndex) != None:
-        opponentBlockPos.append(opponentPos)
     bestDist = 9999
     actions = gameState.getLegalActions(self.index)
+    
     for action in actions:
       successor = self.getSuccessor(gameState, action)
       pos2 = successor.getAgentPosition(self.index)
       dist = self.bfs_distance(self.seeking,pos2, opponentBlockPos)
+      
       if opponentBlockPos != None:
         if not self.calcXNextMoves(gameState, 3, opponentBlockPos):
-          print("opponent is near")
+          # print("opponent is near")
           continue
       if dist < bestDist:
         bestAction = action
