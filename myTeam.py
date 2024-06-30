@@ -159,16 +159,23 @@ class AttackAgent(BaseAgent):
     self.strategy = 'CAPSULE'
     self.strategies = {
       'CAPSULE': self.findCapsule,
-      'FOOD': self.findNearFood
+      'FOOD': self.findNearFood,
+      'RETURN': self.findCapsule
     }
     
   
   def chooseAction(self, gameState: GameState) -> Action:
+    if self.seeking == self.start:
+      if not gameState.getAgentState(self.index).isPacman:
+        self.strategy = 'FOOD'
+    print(self.strategy)
     action = self.strategies[self.strategy](gameState)
     return action
   
   def setup(self, gameState: GameState) -> None:
     self.seeking = self.getCapsules(gameState)[0]
+    self.moviments = 0
+    self.ignoreGhosts = True
 
   def getOponentPositions(self, gameState: GameState):
     opponentBlockPos = []
@@ -178,14 +185,36 @@ class AttackAgent(BaseAgent):
         opponentBlockPos.append(opponentPos)
     return opponentBlockPos
     
+  # def returnToBase(self, gameState: GameState):
+  #   current = gameState.getAgentPosition(self.index)
+  #   dist, _dir = self.bfs_distance(self.start, current)
+  #   if dist == 0:
+  #     self.strategy = 'FOOD'
+  #     return self.
+  #   return _dir
 
   def findNearFood(self, gameState: GameState):
+    self.moviments += 1
     current = gameState.getAgentPosition(self.index)
-    print('sdasdsad')
     opponentBlockPos = self.getOponentPositions(gameState)
     food = self.getFood(gameState).asList()
+    if len(food) <= 2:
+      self.strategy = 'RETURN'
+      return self.findCapsule(gameState)
 
-    dist, _dir = self.bfs_distance_goals(current, enemies=opponentBlockPos, goals=food)
+    if self.moviments < 25:
+      dist, _dir = self.bfs_distance_goals(current, enemies=opponentBlockPos, goals=food)
+    elif self.moviments < 33:
+      if self.ignoreGhosts:
+        dist, _dir = self.bfs_distance_goals(current, goals=food)
+      else:
+        dist, _dir = self.bfs_distance_goals(current, enemies=opponentBlockPos, goals=food)
+    else:
+      self.strategy = 'RETURN'
+      self.seeking = self.start
+      self.moviments = 0
+      self.ignoreGhosts = False
+      return self.findCapsule(gameState)
     
     return _dir
 
