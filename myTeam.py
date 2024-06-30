@@ -26,7 +26,7 @@ from enum import Enum
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'AttackAgent', second = 'BaseAgent'):
+               first = 'AttackAgent', second = 'DefenseAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -92,7 +92,7 @@ class BaseAgent(CaptureAgent):
     pos1 = (pos1[0], len(grid) - pos1[1] - 1)
     
     return bfs(grid, pos1)
-
+  
   def bfs_distance(self, pos1, pos2, enemies=[]):
     def bfs(grid, start, goal):
       # print("\033[H\033[J", end="")
@@ -128,7 +128,7 @@ class BaseAgent(CaptureAgent):
   
   def registerInitialState(self, gameState: GameState) -> None:
     self.layout = str(gameState.data.layout)
-    print(self.layout)
+    # print(self.layout)
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
     self.setup(gameState)
@@ -168,7 +168,7 @@ class AttackAgent(BaseAgent):
     if self.seeking == self.start:
       if not gameState.getAgentState(self.index).isPacman:
         self.strategy = 'FOOD'
-    print(self.strategy)
+    # print(self.strategy)
     action = self.strategies[self.strategy](gameState)
     return action
   
@@ -194,7 +194,9 @@ class AttackAgent(BaseAgent):
   #   return _dir
 
   def findNearFood(self, gameState: GameState):
-    self.moviments += 1
+    isPacman = gameState.getAgentState(self.index).isPacman
+    if isPacman:
+      self.moviments += 1
     current = gameState.getAgentPosition(self.index)
     opponentBlockPos = self.getOponentPositions(gameState)
     food = self.getFood(gameState).asList()
@@ -202,10 +204,8 @@ class AttackAgent(BaseAgent):
       self.strategy = 'RETURN'
       return self.findCapsule(gameState)
 
-    if self.moviments < 25:
-      dist, _dir = self.bfs_distance_goals(current, enemies=opponentBlockPos, goals=food)
-    elif self.moviments < 33:
-      if self.ignoreGhosts:
+    if self.moviments < 33:
+      if self.ignoreGhosts or not isPacman:
         dist, _dir = self.bfs_distance_goals(current, goals=food)
       else:
         dist, _dir = self.bfs_distance_goals(current, enemies=opponentBlockPos, goals=food)
@@ -236,7 +236,7 @@ class AttackAgent(BaseAgent):
       pos2 = successor.getAgentPosition(self.index)
       dist = self.bfs_distance(self.seeking,pos2, opponentBlockPos)
       
-      if opponentBlockPos != None:
+      if opponentBlockPos != None and gameState.getAgentState(self.index).isPacman:
         if not self.calcXNextMoves(gameState, 3, opponentBlockPos):
           # print("opponent is near")
           continue
@@ -244,7 +244,7 @@ class AttackAgent(BaseAgent):
         bestAction = action
         bestDist = dist
     if bestDist == 9999:
-      print("random action")
+      # print("random action")
       return Directions.STOP
     return bestAction
   
@@ -265,7 +265,7 @@ class AttackAgent(BaseAgent):
       for pos in opponentPos:
         if self.calculateDistance(gameState.getAgentPosition(self.index), pos) == 1:
           possible = False
-          print("opponent is near")
+          # print("opponent is near")
           break
       
     # print(possible)
@@ -279,6 +279,112 @@ class AttackAgent(BaseAgent):
     
 
 class DefenseAgent(BaseAgent):
+  def bfs_distance_foods(self, pos1, foods=[]):
+      def bfs(grid, start):
+        rows, cols = len(grid), len(grid[0])
+        queue = [(start, 0, Directions.STOP)]  # (position, distance)
+        visited = set([start])
+        
+        directions = [Directions.EAST, Directions.WEST, Directions.SOUTH, Directions.NORTH]
+        
+        while queue:  
+          curr, distance, _dir = queue.pop(0)
+
+          if grid[curr[1]][curr[0]] == '-' and distance <= 3:
+            self.foods.remove((curr[0], len(grid) - curr[1] - 1))
+            continue
+
+          if grid[curr[1]][curr[0]] == '-' and distance > 3:
+            return distance, _dir, (curr[0], len(grid) - curr[1] - 1)
+          neighbors = [(curr[0] + 1, curr[1]), (curr[0] - 1, curr[1]), (curr[0], curr[1] + 1), (curr[0], curr[1] - 1)]
+          
+          for vizinho, direct in zip(neighbors, directions):
+            if 0 <= vizinho[0] < cols and 0 <= vizinho[1] < rows:
+              if grid[vizinho[1]][vizinho[0]] not in ['%'] and vizinho not in visited:
+                if _dir != Directions.STOP:
+                  direct = _dir
+                queue.append((vizinho, distance + 1, direct))
+                visited.add(vizinho)
+                
+        return float('inf'), Directions.STOP, self.start  # Retorna infinito se não houver caminho
+
+      grid = parse_map(self.layout)
+      
+      for pos in foods:
+        grid[len(grid) - pos[1] - 1][pos[0]] = '-'
+      
+      # y must be inverted
+      pos1 = (pos1[0], len(grid) - pos1[1] - 1)
+      
+      return bfs(grid, pos1)
+
+
+  def registerInitialState(self, gameState: GameState) -> None:
+    super().registerInitialState(gameState)
+    self.strategy = 'POSITION'
+    self.strategies = {
+      'POSITION': self.position,
+      'POSITION2': self.position2
+    }
+    self.startAction = None
+    self.foodDist = 0
+    self.seeking =  None
+    self.foods = self.getFoodYouAreDefending(gameState).asList()
+  
   def chooseAction(self, gameState: GameState) -> Action:
-    actions = gameState.getLegalActions(self.index)
-    return random.choice(actions)
+    action = self.strategies[self.strategy](gameState)
+    return action
+
+  def getDefensiveFood(self, gameState: GameState):
+    food = self.getFoodYouAreDefending(gameState).asList()
+    return food
+
+  def getOponentPositions(self, gameState: GameState):
+    opponentBlockPos = []
+    for opponentsIndex in self.getOpponents(gameState):
+      opponentPos = gameState.getAgentPosition(opponentsIndex)
+      if gameState.getAgentPosition(opponentsIndex) != None:
+        opponentBlockPos.append(opponentPos)
+    return opponentBlockPos
+  
+  def position(self, gameState: GameState):
+    if self.startAction == None:
+      for action in gameState.getLegalActions(self.index):
+        if action != Directions.STOP:
+          self.startAction = action
+    elif self.startAction not in gameState.getLegalActions(self.index):
+      self.strategy = 'POSITION2'
+      return self.position2(gameState)
+    return self.startAction
+
+  def position2(self, gameState: GameState):
+    current = gameState.getAgentPosition(self.index)
+    opponentBlockPos = self.getOponentPositions(gameState)
+
+    if gameState.getAgentState(self.index).isPacman:
+      dist, _dir = self.bfs_distance_goals(current, goals=[self.start])
+      return _dir
+
+    if len(opponentBlockPos) > 0:
+      dist, _dir = self.bfs_distance_goals(current, goals=opponentBlockPos)
+      if dist < 4:
+        return _dir
+      
+    if self.foodDist > 3:
+      dist, _dir = self.bfs_distance_goals(current, goals=[self.seeking])
+      self.foodDist -= 1
+      if self.seeking == self.start:
+        self.foods = self.getFoodYouAreDefending(gameState).asList()
+    else:
+      if len(self.foods) < 3:
+        self.foods = self.getFoodYouAreDefending(gameState).asList()
+      dist, _dir, pos = self.bfs_distance_foods(current, foods=self.foods)
+      if pos in self.foods:
+        self.foods.remove(pos)
+      self.seeking = pos
+      self.foodDist = dist
+
+    return _dir
+  
+  def opponentIsNear():
+    pass
