@@ -260,6 +260,8 @@ class AttackAgent(BaseAgent):
         if dist < bestDist:
           bestAction = action
           bestDist = dist
+      if bestAction == None:
+        bestAction = random.choice(actions)
       gameState = self.getSuccessor(gameState, bestAction)
       # print(gameState.getAgentPosition(self.index), opponentPos)
       for pos in opponentPos:
@@ -375,6 +377,7 @@ class DefenseAgent(BaseAgent):
       self.foodDist -= 1
       if self.seeking == self.start:
         self.foods = self.getFoodYouAreDefending(gameState).asList()
+        self.foodDist = 0
     else:
       if len(self.foods) < 3:
         self.foods = self.getFoodYouAreDefending(gameState).asList()
