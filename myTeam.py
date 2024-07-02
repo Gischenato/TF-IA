@@ -252,6 +252,7 @@ class AttackAgent(BaseAgent):
     possible = True
     for i in range(moves):
       bestDist = 9999
+      bestAction = None
       actions = gameState.getLegalActions(self.index)
       for action in actions:
         successor = self.getSuccessor(gameState, action)
